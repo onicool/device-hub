@@ -260,6 +260,40 @@ impl Shell {
                 )),
         );
 
+        let autostart = crate::resident::autostart_enabled();
+        let resident = ui::card_titled("常駐と自動起動", "power", None).child(
+            ui::body()
+                .pb(px(12.))
+                .child(ui::row_first(
+                    "閉じてもタスクトレイに常駐",
+                    Some("× で終了せず裏で動き続けます (トレイアイコンから再表示・右クリックで終了)"),
+                    ui::toggle("resident", self.prefs.resident, cx, |this, on, cx| {
+                        this.prefs.resident = on;
+                        this.prefs.save();
+                        crate::resident::RESIDENT.store(on, std::sync::atomic::Ordering::SeqCst);
+                        cx.notify();
+                    }),
+                ))
+                .child(ui::row(
+                    "Windows ログイン時に起動",
+                    Some("窓を出さずにトレイで常駐します (G HUB の自動起動の代わり)"),
+                    ui::toggle("autostart", autostart, cx, |this, on, cx| {
+                        match crate::resident::set_autostart(on) {
+                            Ok(()) => {
+                                let msg = if on {
+                                    "ログイン時に自動起動します"
+                                } else {
+                                    "自動起動を解除しました"
+                                };
+                                this.toast(msg.to_string(), false, cx);
+                            }
+                            Err(e) => this.toast(e, true, cx),
+                        }
+                        cx.notify();
+                    }),
+                )),
+        );
+
         let about = ui::card_titled("このアプリについて", "info", None).child(
             ui::body()
                 .pb(px(14.))
@@ -287,6 +321,7 @@ impl Shell {
                         look.into_any_element(),
                         backend.into_any_element(),
                         fw.into_any_element(),
+                        resident.into_any_element(),
                         about.into_any_element(),
                     ])),
             )

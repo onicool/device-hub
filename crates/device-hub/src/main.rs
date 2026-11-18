@@ -59,7 +59,16 @@ fn main() {
                 tb.title = Some("Device HUB".into());
             }
 
+            // 常駐: × で隠す (トレイから戻す)。自動起動 (--background) は窓を出さずに常駐。
+            device_hub::resident::RESIDENT
+                .store(prefs.resident, std::sync::atomic::Ordering::SeqCst);
+            let background = device_hub::resident::background_launch();
             gpui_kit::open_window(options, cx, |window, cx| {
+                device_hub::resident::install(main_hwnd(window));
+                window.on_window_should_close(cx, |_, _| device_hub::resident::should_close());
+                if background {
+                    device_hub::resident::hide_main();
+                }
                 cx.new(|cx| Shell::new(window, cx))
             })
             .expect("failed to open window");
@@ -70,4 +79,19 @@ fn main() {
             })
             .detach();
         });
+}
+
+/// 窓の HWND (非 Windows では 0 = トレイ無し)。
+fn main_hwnd(window: &Window) -> isize {
+    #[cfg(windows)]
+    {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        if let Ok(RawWindowHandle::Win32(h)) =
+            HasWindowHandle::window_handle(window).map(|h| h.as_raw())
+        {
+            return h.hwnd.get();
+        }
+    }
+    let _ = window;
+    0
 }

@@ -1104,3 +1104,95 @@ get/set は cmd が +0x80/同一値の関係。`devID` はプロファイル番�
 - 公式の日本語表示名: 移動同期 / 直線補正 / リップル / LOD / ガラスモード / 20K FPS / 競技モード / 角度調整 /
   スリープ時間 / スクロールBhop / ホイール応答時間 / デバウンスタイム / 高速トリガー / ドングルLED (信号) /
   プロファイルをリセット / 完全初期化。X-Y軸分離は DPI タブの X/Y 切り替えで扱う (設定行には出さない)。
+
+## 6. Logitech HID++ 2.0 — PRO Wireless (G HUB の置き換え) ※実機未検証
+
+ドライバ: `crates/devhub-hid/src/hidpp.rs`、解析ツール: `examples/logiprobe.rs`、
+G HUB 削除: `scripts/remove-ghub.ps1`。仕様は Logitech が公開している HID++ 2.0 の feature 文書と
+libratbag (`src/hidpp20.c`, MIT) で確認した。Solaar (GPL) は挙動の確認にだけ使い、コードは流用していない。
+
+### 6.1 方針
+
+- **G HUB は「ホストモード」でマウスを常駐制御する**が、Device HUB は**オンボードメモリ
+  (0x8100) に直接書く**。書いた後はアプリを閉じても・G HUB が無くても設定が残る。
+- 開いた時点でモードがホスト (2) ならオンボード (1) に戻す (G HUB の「オンボードメモリ OFF」の後始末)。
+- ユーザー領域のディレクトリが空 (工場出荷のまま ROM で動作中) なら、最初の書き込み時に
+  ROM プロファイルをユーザーセクタ 1..N へ複製し、ディレクトリを作る (libratbag と同じ)。
+- 書き込みはプロファイル形式 1–3・セクタ長 ≥ 0xF0 のときだけ。それ以外は読み取りのみ。
+
+### 6.2 識別
+
+| 接続 | VID:PID | コレクション | device index |
+|---|---|---|---|
+| LIGHTSPEED レシーバー (PRO Wireless / G703 / G903 同梱) | 046D:C539 | FF00:0002 (long, ID 0x11) | 0x01 |
+| PRO Wireless 有線直結 | 046D:C088 | FF00:0002 | 0xFF |
+
+Windows では short (0x10, FF00:0001) と long が別コレクション。long だけ開く。
+HID++ 1.0 のエラー (0x8F、マウス未接続など) は short 側に出るので、long 側ではタイムアウト
+= 「スリープ中」扱い (`DeviceInfo.asleep`)。
+
+### 6.3 フレーム
+
+```
+要求  11 <dev> <featIdx> <fn<<4 | sw> <params 16B>        (sw = 0x0A。0 は自律通知)
+応答  11 <dev> <featIdx> <fn<<4 | sw> <result 16B>
+エラー 11 <dev> FF <featIdx> <fn<<4 | sw> <err> …          err: 2=引数 3=範囲外 8=busy 9=非対応
+```
+
+feature は **index** で呼ぶ。Root (index 0) fn0 `getFeature(id_hi, id_lo)` → `[index, type, ver]`。
+
+| feature | 用途 | 使う関数 |
+|---|---|---|
+| 0x0003 DeviceFwVersion | FW 表示 | fn0 count / fn1 info(entity) → `[type, 'MPM'(3), major, minor, build(2)]` |
+| 0x0005 DeviceName | 表示名 | fn0 len / fn1 chunk(offset) |
+| 0x1001 BatteryVoltage | 電池 (PRO Wireless) | fn0 → `[mV BE(2), flags]` bit7=充電中。% は放電カーブで近似 |
+| 0x1004 UnifiedBattery | 電池 (新しめの機種) | fn1 → `[soc%, level, status, ext]` |
+| 0x2201 AdjustableDpi | DPI 範囲 | fn1 list(sensor) → u16 BE 列、`0xE000|step` で範囲 |
+| 0x8060 ReportRate | ポーリング候補 | fn0 → bit n = (n+1)ms |
+| 0x8070 ColorLedEffects | LED ゾーン数 | fn0 → `[zones, …]` |
+| 0x8100 OnboardProfiles | **設定の保存先** | 下表 |
+
+0x8100: fn0 getInfo `[memModel, format, macroFmt, profiles, profilesOOB, buttons, sectors, sectorSize BE(2), …]` /
+fn1 setMode / fn2 getMode (1=オンボード, 2=ホスト) / fn3 setCurrentProfile `[0, n(1始まり)]` /
+fn4 getCurrentProfile → `[_, n]` / fn5 read `[sec(2), off(2)]` → 16B (末尾は size-16 から読む) /
+fn6 writeStart `[sec(2), off(2), len(2)]` / fn7 write 16B / fn8 writeEnd /
+fn11 getDpiIndex / fn12 setDpiIndex (ランタイム、保存されない)。
+
+### 6.4 セクタ
+
+- 0x0000 = ユーザーディレクトリ、0x0100 = ROM ディレクトリ。エントリ `[sector BE(2), enabled, 0]`、`FFFF` で終端。
+- 全セクタ末尾 2B = CRC-CCITT (poly 0x1021, init 0xFFFF) **BE**。
+
+プロファイルセクタ (format 1–3):
+
+| off | 内容 |
+|---|---|
+| 0x00 | report rate (ms) |
+| 0x01 | 既定 DPI index |
+| 0x02 | DPI シフト先 index |
+| 0x03 | DPI × 5 (u16 LE、0/FFFF = 空き) |
+| 0x0D | プロファイル色 RGB |
+| 0x1C / 0x1E | 省電力 / 電源オフ タイムアウト |
+| 0x20 | ボタン × 16 (4B) |
+| 0x60 | G-Shift 側ボタン × 16 |
+| 0xA0 | 名前 (UTF-16LE) |
+| 0xD0 | LED × 2 ゾーン (11B) / 0xE6 G-Shift 側 LED |
+
+ボタン 4B: `80 01 <mask BE>` マウス (bit0 左…bit4 進む) / `80 02 <mods> <usage>` キー /
+`80 03 <usage BE>` Consumer / `90 <special> …` 特殊 (01/02 横スクロール, 03/04 DPI±, 05 DPI 循環,
+07 プロファイル循環, 09 DPI シフト) / `00 …` マクロ (未対応・そのまま往復) / `FF FF FF FF` 未割当。
+
+LED 11B: `00` 消灯 / `01 r g b` 固定 / `03 _×5 period(BE) intensity` サイクル /
+`0A r g b period(BE) waveform intensity` 呼吸 (intensity 0 = 100%)。
+
+### 6.5 実機での確認手順 (未検証項目)
+
+1. `cargo run -p devhub-hid --example logiprobe` — feature 一覧・オンボード情報 (format / sectorSize / buttons)。
+2. `... logiprobe -- dump` — ディレクトリと現在のプロファイルの 16 進ダンプ。CRC OK を確認。
+3. G HUB を残したまま `... logiprobe -- listen` を起動し、G HUB で DPI を 1 つ変える →
+   応答に出る feature index / fn / 値から、上の表のオフセットとずれが無いか確かめる。
+4. Device HUB で DPI・ポーリング・ボタン・LED を書き換え → 電源を入れ直しても保持されることを確認。
+5. 確認できたら `scripts/remove-ghub.ps1` で G HUB を削除 → registry の `verified: true`。
+
+未確認の推定: ボタン 6–8 の物理位置 (右サイド後/前・底面 DPI)、LED ゾーンの割り当て、
+0x90 特殊コードの一部 (DPI シフトの挙動)。

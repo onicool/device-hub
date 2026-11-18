@@ -38,6 +38,8 @@ pub struct Prefs {
     /// プロセス監視ルール (フォアグラウンド連動でプロファイルを適用)。
     #[serde(default)]
     pub proc_rules: Vec<ProcRule>,
+    /// 常駐: × で終了せずタスクトレイに隠す (G HUB の代わりに裏で動き続ける)。
+    pub resident: bool,
 }
 
 /// 設定プロファイル — 録画した `Change` を順に再生して適用する。
@@ -140,6 +142,7 @@ impl Default for Prefs {
             livefx: Default::default(),
             profiles: vec![],
             proc_rules: vec![],
+            resident: true,
         }
     }
 }

@@ -265,6 +265,38 @@ pub const KNOWN: &[KnownDevice] = &[
         driver: DriverKind::Lamzu,
         verified: false,
     },
+    // ---------------------------------------------------------------- マウス (Logitech HID++ 2.0)
+    // G HUB の代わり。設定は HID++ long report コレクション (FF00:0002, report 0x11) で、
+    // 機能は feature ID → index の探索で決まる (機種表は不要)。表示名はデバイス名
+    // (feature 0x0005) を読んで確定する。docs/PROTOCOL_NOTES.md §6。
+    // LIGHTSPEED レシーバー (PRO Wireless / G703 / G903 同梱品)。device index 1。
+    KnownDevice {
+        vid: 0x046D,
+        pid: 0xC539,
+        usage_page: Some(0xFF00),
+        usage: Some(0x02),
+        kind: DeviceKind::Mouse,
+        vendor: "Logicool",
+        model: "logi-lightspeed",
+        name: "Logicool LIGHTSPEED レシーバー",
+        transport: Transport::Wireless24G,
+        driver: DriverKind::Hidpp,
+        verified: false,
+    },
+    // PRO Wireless を USB ケーブルで直結したとき。device index 0xFF。
+    KnownDevice {
+        vid: 0x046D,
+        pid: 0xC088,
+        usage_page: Some(0xFF00),
+        usage: Some(0x02),
+        kind: DeviceKind::Mouse,
+        vendor: "Logicool",
+        model: "logi-pro-wireless",
+        name: "Logicool PRO Wireless",
+        transport: Transport::Wired,
+        driver: DriverKind::Hidpp,
+        verified: false,
+    },
 ];
 
 /// 列挙結果 (VID/PID/usage) に合う既知デバイス。`0xFFFF` のプレースホルダは一致しない。

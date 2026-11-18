@@ -23,6 +23,7 @@ pub mod palette;
 pub mod prefs;
 pub mod presets;
 pub mod procmon;
+pub mod resident;
 pub use devhub_obs::rawinput;
 pub mod store;
 pub mod theme;

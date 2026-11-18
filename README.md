@@ -131,6 +131,20 @@ UI は GPUI + Liquid Glass デザイン。
 - **OBS プラグイン** — 押下深さのライブソース。アプリ無しで単体動作し、設定は OBS プロパティで完結
 - 設定・プロファイルのインポート/エクスポート、元に戻す、プリセット、コマンドパレット
 
+### Logicool G HUB の置き換え (PRO Wireless)
+
+Logicool の HID++ 2.0 を直接話し、DPI (5 段)・ポーリング・ボタン割り当て・ロゴ LED を
+**マウス本体のオンボードメモリ**へ書き込みます。G HUB を常駐させる必要はありません。
+
+1. `cargo build --release -p device-hub` でビルドし、PRO Wireless の設定ができることを確認
+2. 解析・確認用: `cargo run -p devhub-hid --example logiprobe -- dump`
+   (G HUB 起動中に `-- listen` で G HUB の通信を傍受できます)
+3. `powershell -ExecutionPolicy Bypass -File scripts\remove-ghub.ps1` —
+   G HUB を削除し、Device HUB をログイン時にトレイ常駐で自動起動するよう登録
+
+アプリは × で閉じてもタスクトレイに常駐します (アプリ設定 →「常駐と自動起動」で変更可)。
+プロトコルの詳細は docs/PROTOCOL_NOTES.md §6。**実機未検証**です。
+
 ### 動作確認デバイス
 
 HTS Plus Pro (有線+ドングル) · SU66 Max · TP55 USB DAC

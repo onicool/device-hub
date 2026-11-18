@@ -20,6 +20,9 @@ use std::sync::{Arc, Mutex};
 /// ATK 系ドライバ。診断 example (atkread) からも使うので公開。
 #[doc(hidden)]
 pub mod atk;
+/// Logitech HID++ 2.0 ドライバ。診断 example (logiprobe) からも使うので公開。
+#[doc(hidden)]
+pub mod hidpp;
 #[doc(hidden)]
 pub mod lamzu;
 #[allow(dead_code)]
@@ -52,6 +55,7 @@ fn driver_ready(kind: DriverKind) -> bool {
         DriverKind::Walkplay => true,
         DriverKind::Atk => true,
         DriverKind::Lamzu => true,
+        DriverKind::Hidpp => true,
         DriverKind::Unsupported => false,
     }
 }
@@ -224,6 +228,7 @@ impl HubBackend for RealHub {
             DriverKind::Walkplay => Arc::new(walkplay::open(dev, info)?),
             DriverKind::Atk => Arc::new(atk::open(dev, info, events)?),
             DriverKind::Lamzu => Arc::new(lamzu::open(dev, info, events)?),
+            DriverKind::Hidpp => Arc::new(hidpp::open(dev, info, events)?),
             DriverKind::Unsupported => {
                 return Err(HubError::NotImplemented("このデバイスのドライバ"))
             }

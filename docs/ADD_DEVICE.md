@@ -14,6 +14,8 @@
 | HTS Plus Pro (無線) | ドングル 33E4:3854 | FF02 / 02 | Mousefit → `mousefit8.rs` (report-8/EEPROM) | www.mouse.fit | **v2 実機検証済** (全設定・DPI・ボタン・マクロ・ポーリング 125–8K・磁気ボタン校正/押下深さ・休眠検知/覚醒自動再読) |
 | HTS Plus Pro (有線) | 33E4:5219 | FF02 / 02 | Mousefit → `mousefit8.rs` (report-8/EEPROM) | www.mouse.fit | **v2 実機検証済** (有線でも feature report は使えず report-8) |
 | HTX Ultra | 33E4:5608, 5617, 5618, 5619 | FF02 / 02 (推定) | Mousefit | www.mouse.fit | 機種表から登録 / 未検証 |
+| Logicool PRO Wireless (無線) | レシーバー 046D:C539 | FF00 / 02 | Hidpp (`hidpp.rs`) | G HUB | 実装済・実機未検証 (オンボードメモリ書き込み。PROTOCOL_NOTES §6) |
+| Logicool PRO Wireless (有線) | 046D:C088 | FF00 / 02 | Hidpp (`hidpp.rs`) | G HUB | 実装済・実機未検証 |
 | ATK F1 Ultimate | 未確定 | 未確定 | 未確定 | (mouse.fit の機種表に無い) | §7 を参照 |
 
 **接続方式でプロトコルが変わる点に注意**: mouse.fit の新プロトコル (64B feature report) は
